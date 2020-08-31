@@ -6,6 +6,7 @@ import shutil
 import sys  # add path to util which is one level above
 import time
 import warnings
+warnings.filterwarnings('ignore')
 from datetime import datetime
 
 import gc
@@ -140,6 +141,7 @@ def main():
     log.console(args)
     tb.log('sizes/world', dist_utils.env_world_size())
 
+    print(args.data)
     assert os.path.exists(args.data)
     
     # need to index validation directory before we start counting the time
@@ -192,7 +194,7 @@ def main():
     scale_224 = 224 / 512
     scale_288 = 128 / 512
     one_machine = [
-        {'ep': 0, 'sz': 128, 'bs': 512, 'trndir': '-sz/160'},
+        {'ep': 0, 'sz': 128, 'bs': 512}, # No idea, should we look at downloaded thing?
         {'ep': (0, 5), 'lr': (lr, lr * 2)},  # lr warmup is better with --init-bn0
         {'ep': 5, 'lr': lr},
         {'ep': 14, 'sz': 224, 'bs': 224,'lr': lr * scale_224},
@@ -201,7 +203,8 @@ def main():
         {'ep': 32, 'sz': 288, 'bs': 128, 'min_scale': 0.5, 'rect_val': True,'lr': lr / 100 * scale_288},
         {'ep': (33, 35), 'lr': lr / 1000 * scale_288}
     ]
-    phases=one_machine
+    phases = util.text_pickle(one_machine) #Ok? Unpickle?
+    phases = util.text_unpickle(phases) 
     dm = DataManager([copy.deepcopy(p) for p in phases if 'bs' in p])
     scheduler = Scheduler(optimizer, [copy.deepcopy(p) for p in phases if 'lr' in p])
 
@@ -413,7 +416,7 @@ class DataManager():
         trndir = phase.get('trndir', '')
         valdir = phase.get('valdir', trndir)
         phase['trndir'] = args.data + trndir + '/train'
-        phase['valdir'] = args.data + valdir + '/validation'
+        phase['valdir'] = args.data + valdir + '/val'
 
     def preload_data(self, ep, sz, bs, trndir, valdir, **kwargs):  # dummy ep var to prevent error
         if 'lr' in kwargs: del kwargs['lr']  # in case we mix schedule and data phases
