@@ -194,14 +194,15 @@ def main():
     scale_224 = 224 / 512
     scale_288 = 128 / 512
     one_machine = [
-        {'ep': 0, 'sz': 128, 'bs': 512}, # No idea, should we look at downloaded thing?
+        {'ep': 0, 'sz': 128, 'bs': 512, 'trndir': ''}, # Will this work?  -- No idea! Should we try with mv2 baseline? ???
         {'ep': (0, 5), 'lr': (lr, lr * 2)},  # lr warmup is better with --init-bn0
         {'ep': 5, 'lr': lr},
         {'ep': 14, 'sz': 224, 'bs': 224,'lr': lr * scale_224},
         {'ep': 16, 'lr': lr / 10 * scale_224},
         {'ep': 27, 'lr': lr / 100 * scale_224},
         {'ep': 32, 'sz': 288, 'bs': 128, 'min_scale': 0.5, 'rect_val': True,'lr': lr / 100 * scale_288},
-        {'ep': (33, 35), 'lr': lr / 1000 * scale_288}
+        {'ep': (33, 35), 'lr': lr / 1000 * scale_288},
+        {'ep': (36, 40), 'lr': lr / 1000 * scale_288}
     ]
     phases = util.text_pickle(one_machine) #Ok? Unpickle?
     phases = util.text_unpickle(phases) 
@@ -232,6 +233,8 @@ def main():
             if is_best:
                 save_checkpoint(epoch, model, best_top5, optimizer, is_best=True,
                                 filename='model_best.pth.tar')
+            else:
+                save_checkpoint(epoch, model, top5, optimizer, is_best=False, filename='model_epoch_'+str(epoch)+'.pth.tar')
             phase = dm.get_phase(epoch)
             if phase:  save_checkpoint(epoch, model, best_top5, optimizer,
                                        filename=f'sz{phase["bs"]}_checkpoint.path.tar')

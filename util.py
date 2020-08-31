@@ -53,7 +53,8 @@ def log_environment():
             wandb.config['env_'+key] = os.getenv(key)
 
     wandb.config['pytorch_version'] = torch.__version__
-    wandb.config.update(extract_ec2_metadata())
+    #wandb.config.update(extract_ec2_metadata())
+    
 
 
 def ossystem(cmd, shell=True):
