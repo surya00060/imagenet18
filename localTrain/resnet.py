@@ -91,6 +91,256 @@ class Bottleneck(nn.Module):
 
         return out
 
+class BottleneckFriendly(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(BottleneckFriendly, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        #self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+        #                       padding=1, bias=False)
+        #self.bn2 = nn.BatchNorm2d(planes)
+
+        self.conv2_h = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (1,3), stride = stride, padding = (0,1), groups = planes //2, bias=False)
+        self.bn2_h = nn.BatchNorm2d(planes // 2 )
+        self.conv2_v = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (3,1), stride = stride, padding = (1,0), groups = planes // 2, bias=False)
+        self.bn2_v = nn.BatchNorm2d(planes // 2 )
+
+        self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        #out = self.conv2(out)
+        #out = self.bn2(out)
+        out1, out2 = out.chunk(2,1)
+        out1 = self.conv2_h(out1)
+        out1 = self.bn2_h(out1)
+        out1 = self.relu(out1)
+        out2 = self.conv2_v(out2)
+        out2 = self.bn2_v(out2)
+        out2 = self.relu(out2)
+
+        out = torch.cat([out1,out2],1)
+
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+class BottleneckFriendly2(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(BottleneckFriendly2, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        #self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+        #                       padding=1, bias=False)
+        #self.bn2 = nn.BatchNorm2d(planes)
+
+        self.conv2_h = nn.Conv2d(planes, planes, kernel_size = (1,3), stride = stride, padding = (0,1), groups = planes, bias=False)
+        self.bn2_h = nn.BatchNorm2d(planes)
+        self.conv2_v = nn.Conv2d(planes, planes, kernel_size = (3,1), stride = stride, padding = (1,0), groups = planes, bias=False)
+        self.bn2_v = nn.BatchNorm2d(planes)
+
+        self.conv3 = nn.Conv2d(2*planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        #out = self.conv2(out)
+        #out = self.bn2(out)
+        #out1, out2 = out.chunk(2,1)
+        out1 = self.conv2_h(out)
+        out1 = self.bn2_h(out1)
+        out1 = self.relu(out1)
+        out2 = self.conv2_v(out)
+        out2 = self.bn2_v(out2)
+        out2 = self.relu(out2)
+
+        out = torch.cat([out1,out2],1)
+
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+class BottleneckFriendly3(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(BottleneckFriendly3, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        #self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+        #                       padding=1, bias=False)
+        #self.bn2 = nn.BatchNorm2d(planes)
+
+        self.conv2_h = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (1,3), stride = stride, padding = (0,1), groups=planes//2, bias=False)
+        self.bn2_h = nn.BatchNorm2d(planes // 2 )
+        self.conv2_hh = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (1,3), stride = stride, padding = (0,1), groups = planes // 2, bias=False)
+        self.bn2_hh = nn.BatchNorm2d(planes // 2 )
+
+        self.conv2_v = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (3,1), stride = stride, padding = (1,0), groups = planes //2, bias=False)
+        self.bn2_v = nn.BatchNorm2d(planes // 2 )
+        self.conv2_vv = nn.Conv2d(planes // 2 , planes //2 , kernel_size = (3,1), stride = stride, padding = (1,0), groups = planes // 2, bias=False)
+        self.bn2_vv = nn.BatchNorm2d(planes // 2 )
+
+        self.conv3 = nn.Conv2d(2*planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        #out = self.conv2(out)
+        #out = self.bn2(out)
+        out1, out2 = out.chunk(2,1)
+        out11 = self.conv2_h(out1)
+        out11 = self.bn2_h(out11)
+        out11 = self.relu(out11)
+
+        out12 = self.conv2_hh(out1)
+        out12 = self.bn2_hh(out12)
+        out12 = self.relu(out12)
+
+        out21 = self.conv2_v(out2)
+        out21 = self.bn2_v(out21)
+        out21 = self.relu(out21)
+
+        out22 = self.conv2_vv(out2)
+        out22 = self.bn2_vv(out22)
+        out22 = self.relu(out22)
+
+        out = torch.cat([out11,out12, out21, out22],1)
+
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+class BottleneckFriendly4(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(BottleneckFriendly4, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        #self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+        #                       padding=1, bias=False)
+        #self.bn2 = nn.BatchNorm2d(planes)
+
+        self.conv2_h = nn.Conv2d(planes, planes, kernel_size = (1,3), stride = stride, padding = (0,1), groups=planes, bias=False)
+        self.bn2_h = nn.BatchNorm2d(planes)
+        self.conv2_hh = nn.Conv2d(planes, planes, kernel_size = (1,3), stride = stride, padding = (0,1), groups=planes, bias=False)
+        self.bn2_hh = nn.BatchNorm2d(planes)
+
+        self.conv2_v = nn.Conv2d(planes, planes, kernel_size = (3,1), stride = stride, padding = (1,0), groups=planes, bias=False)
+        self.bn2_v = nn.BatchNorm2d(planes)
+        self.conv2_vv = nn.Conv2d(planes, planes, kernel_size = (3,1), stride = stride, padding = (1,0), groups=planes, bias=False)
+        self.bn2_vv = nn.BatchNorm2d(planes)
+
+        self.conv3 = nn.Conv2d(4*planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        #out = self.conv2(out)
+        #out = self.bn2(out)
+        #out1, out2 = out.chunk(2,1)
+        #Gotcha! - its not planes //2 right. yeah
+        out11 = self.conv2_h(out)
+        out11 = self.bn2_h(out11)
+        out11 = self.relu(out11)
+
+        out12 = self.conv2_hh(out)
+        out12 = self.bn2_hh(out12)
+        out12 = self.relu(out12)
+
+        out21 = self.conv2_v(out)
+        out21 = self.bn2_v(out21)
+        out21 = self.relu(out21)
+
+        out22 = self.conv2_vv(out)
+        out22 = self.bn2_vv(out22)
+        out22 = self.relu(out22)
+
+        out = torch.cat([out11,out12, out21, out22],1)
+
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+
+
 
 class ResNet(nn.Module):
 
@@ -194,6 +444,54 @@ def resnet50(pretrained=False, bn0=False, **kwargs):
     if pretrained: model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     if bn0: init_dist_weights(model)
     return model
+
+def resnet50friendly(pretrained=False, bn0=False, **kwargs):
+    """Constructs a ResNet-50 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BottleneckFriendly, [3, 4, 6, 3], **kwargs)
+    if pretrained: model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+    if bn0: init_dist_weights(model)
+    return model
+
+
+def resnet50friendly2(pretrained=False, bn0=False, **kwargs):
+    """Constructs a ResNet-50 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BottleneckFriendly2, [3, 4, 6, 3], **kwargs)
+    if pretrained: model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+    if bn0: init_dist_weights(model)
+    return model
+
+def resnet50friendly3(pretrained=False, bn0=False, **kwargs):
+    """Constructs a ResNet-50 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BottleneckFriendly3, [3, 4, 6, 3], **kwargs)
+    if pretrained: model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+    if bn0: init_dist_weights(model)
+    return model
+
+
+def resnet50friendly4(pretrained=False, bn0=False, **kwargs):
+    """Constructs a ResNet-50 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BottleneckFriendly4, [3, 4, 6, 3], **kwargs)
+    if pretrained: model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+    if bn0: init_dist_weights(model)
+    return model
+
+
 
 
 def resnet101(pretrained=False, **kwargs):

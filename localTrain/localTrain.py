@@ -15,7 +15,7 @@ import torch.distributed as dist
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
-
+import torchvision
 import dataloader
 import dist_utils
 import experimental_utils
@@ -82,6 +82,7 @@ def get_parser():
                         help='make epochs short (for debugging)')
     parser.add_argument('--internal_config_fn', type=str, default='ncluster_config_dict', help='location of filename with extra info to log')
     parser.add_argument('--log_all_workers', type=int, default=0, help='log from each worker instead of just chief')
+    parser.add_argument('--friendlynum', type=int, default = 0, required=True)
     return parser
 
 
@@ -157,7 +158,19 @@ def main():
         log.console("Distributed: success (%d/%d)" % (args.local_rank, dist.get_world_size()))
 
     log.console("Loading model")
-    model = resnet.resnet50(bn0=args.init_bn0).cuda()
+    #from mobilenetv3 import MobileNetV3
+    #model = MobileNetV3(mode='small', num_classes=1000).cuda()
+    if args.friendlynum == 1:
+        model = resnet.resnet50friendly(bn0=args.init_bn0).cuda()
+    elif args.friendlynum == 2:
+        model = resnet.resnet50friendly2(bn0=args.init_bn0).cuda()
+    elif args.friendlynum == 3:
+        model = resnet.resnet50friendly3(bn0=args.init_bn0).cuda()
+    elif args.friendlynum == 4:
+        model = resnet.resnet50friendly4(bn0=args.init_bn0).cuda()
+    #import resnet_friendly
+    #model = resnet_friendly.ResNet50Friendly().cuda()
+    #model = torchvision.models.mobilenet_v2(pretrained=False).cuda()
     if args.fp16:
         model = network_to_half(model)
     if args.distributed:
@@ -182,6 +195,7 @@ def main():
         checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda(args.local_rank))
         model.load_state_dict(checkpoint['state_dict'])
         args.start_epoch = checkpoint['epoch']
+        current_phase = checkpoint['current_phase']
         best_top5 = checkpoint['best_top5']
         optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -190,7 +204,7 @@ def main():
 
     log.console("Creating data loaders (this could take up to 10 minutes if volume needs to be warmed up)")
     # phases = util.text_unpickle(args.phases)
-    lr = 1.0
+    lr = 0.75
     scale_224 = 224 / 512
     scale_288 = 128 / 512
     one_machine = [
@@ -199,10 +213,13 @@ def main():
         {'ep': 5, 'lr': lr},
         {'ep': 14, 'sz': 224, 'bs': 224,'lr': lr * scale_224},
         {'ep': 16, 'lr': lr / 10 * scale_224},
-        {'ep': 27, 'lr': lr / 100 * scale_224},
-        {'ep': 32, 'sz': 288, 'bs': 128, 'min_scale': 0.5, 'rect_val': True,'lr': lr / 100 * scale_288},
-        {'ep': (33, 35), 'lr': lr / 1000 * scale_288},
-        {'ep': (36, 40), 'lr': lr / 1000 * scale_288}
+        {'ep': 32, 'lr': lr / 100 * scale_224},
+        {'ep': 37, 'sz': 288, 'bs': 128, 'min_scale': 0.5, 'rect_val': True,'lr': lr / 100 * scale_288},
+        {'ep': (38, 40), 'lr': lr / 1000 * scale_288},
+        #{'ep': (36, 40), 'lr': lr / 1000 * scale_288},
+        {'ep': (41, 43), 'lr': lr / 10000 * scale_288},
+        {'ep': (43, 45), 'sz': 288, 'bs' : 224, 'lr': lr / 10000 * scale_224}
+        #{'ep': (46, 50), 'sz': 320, 'bs': 64,  'lr': lr / 10000 * scale_320}
     ]
     phases = util.text_pickle(one_machine) #Ok? Unpickle?
     phases = util.text_unpickle(phases) 
@@ -219,6 +236,7 @@ def main():
 
     log.event("~~epoch\thours\ttop1\ttop5\n")
     for epoch in range(args.start_epoch, scheduler.tot_epochs):
+        print( " The start epoch:", args.start_epoch)
         dm.set_epoch(epoch)
 
         train(dm.trn_dl, model, criterion, optimizer, scheduler, epoch)
@@ -229,14 +247,26 @@ def main():
 
         is_best = top5 > best_top5
         best_top5 = max(top5, best_top5)
+        phase_save = dm.get_phase(epoch)
         if args.local_rank == 0:
             if is_best:
-                save_checkpoint(epoch, model, best_top5, optimizer, is_best=True,
-                                filename='model_best.pth.tar')
+                if args.friendlynum == 3:
+                    save_checkpoint(phase_save, epoch, model, best_top5, optimizer, is_best=True,
+                                    filename='model_best_resnet50_friendly3.pth.tar')
+                elif args.friendlynum == 4:
+                    save_checkpoint(phase_save, epoch, model, best_top5, optimizer, is_best=True,
+                                    filename='model_best_resnet50_friendly4.pth.tar')
             else:
-                save_checkpoint(epoch, model, top5, optimizer, is_best=False, filename='model_epoch_'+str(epoch)+'.pth.tar')
+                if args.friendlynum == 1:
+                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly1_schedule2.pth.tar') 
+                elif args.friendlynum == 2:
+                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly2_schedule2.pth.tar') 
+                elif args.friendlynum == 3:
+                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly3.pth.tar') 
+                elif args.friendlynum == 4:
+                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly4.pth.tar') 
             phase = dm.get_phase(epoch)
-            if phase:  save_checkpoint(epoch, model, best_top5, optimizer,
+            if phase:  save_checkpoint(phase_save, epoch, model, best_top5, optimizer,
                                        filename=f'sz{phase["bs"]}_checkpoint.path.tar')
 
 
@@ -384,7 +414,10 @@ class DataManager():
 
     def set_epoch(self, epoch):
         cur_phase = self.get_phase(epoch)
+        #print(" ============================ Setting Epoch =========================" )
+        #print(cur_phase) ## This get phase is returning null!
         if cur_phase: self.set_data(cur_phase)
+        #print(" ============================= Set ==================================" )
         if hasattr(self.trn_smp, 'set_epoch'): self.trn_smp.set_epoch(epoch)
         if hasattr(self.val_smp, 'set_epoch'): self.val_smp.set_epoch(epoch)
 
@@ -398,11 +431,12 @@ class DataManager():
             tb.log_size(phase['bs'])
             self.trn_dl.update_batch_size(phase['bs'])
             return
-
+        #print (" ======================= Setting Data ============================" )
         log.event(f'Dataset changed.\nImage size: {phase["sz"]}\nBatch size: {phase["bs"]}\nTrain Directory: {phase["trndir"]}\nValidation Directory: {phase["valdir"]}')
         tb.log_size(phase['bs'], phase['sz'])
 
         self.trn_dl, self.val_dl, self.trn_smp, self.val_smp = phase['data']
+        #print(" trn_smp set ----------------------:", self.trn_smp)
         self.phases.remove(phase)
 
         # clear memory before we begin training
@@ -428,8 +462,10 @@ class DataManager():
             val_bs = max(bs, 512)
         elif sz == 224:
             val_bs = max(bs, 256)
-        else:
+        elif sz == 288:
             val_bs = max(bs, 128)
+        else:
+            val_bs = max(bs, 64)
         return dataloader.get_loaders(trndir, valdir, bs=bs, val_bs=val_bs, sz=sz, workers=args.workers,
                                       distributed=args.distributed, synthetic=args.synthetic_data, **kwargs)
 
@@ -496,10 +532,11 @@ def to_python_float(t):
         return t[0]
 
 
-def save_checkpoint(epoch, model, best_top5, optimizer, is_best=False, filename='checkpoint.pth.tar'):
+def save_checkpoint(phase, epoch, model, best_top5, optimizer, is_best=False, filename='checkpoint.pth.tar'):
     state = {
         'epoch': epoch + 1, 'state_dict': model.state_dict(),
         'best_top5': best_top5, 'optimizer': optimizer.state_dict(),
+        'current_phase': phase
     }
     torch.save(state, filename)
     if is_best: shutil.copyfile(filename, f'{args.logdir}/{filename}')
