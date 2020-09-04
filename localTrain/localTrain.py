@@ -82,7 +82,7 @@ def get_parser():
                         help='make epochs short (for debugging)')
     parser.add_argument('--internal_config_fn', type=str, default='ncluster_config_dict', help='location of filename with extra info to log')
     parser.add_argument('--log_all_workers', type=int, default=0, help='log from each worker instead of just chief')
-    parser.add_argument('--friendlynum', type=int, default = 0, required=True)
+    parser.add_argument('--network', type=str, default = 'resnet50', required=True)
     return parser
 
 
@@ -103,7 +103,7 @@ is_master = os.environ.get('RANK', '0') == '0'
 
 
 # for mpirun the messages are propagated to main machine, so don't log in that case
-is_rank0 = (args.local_rank == 0) 
+is_rank0 = (args.local_rank == 0)
 
 tb = TensorboardLogger(args.logdir, is_master=is_master)
 log = FileLogger(args.logdir, is_master=is_master, is_rank0=is_rank0)
@@ -144,7 +144,7 @@ def main():
 
     print(args.data)
     assert os.path.exists(args.data)
-    
+
     # need to index validation directory before we start counting the time
     dataloader.sort_ar(args.data + '/val')
 
@@ -160,13 +160,15 @@ def main():
     log.console("Loading model")
     #from mobilenetv3 import MobileNetV3
     #model = MobileNetV3(mode='small', num_classes=1000).cuda()
-    if args.friendlynum == 1:
+    if args.network == 'resnet50':
+        model.resnet.resnet50(bn0=args.init_bn0).cuda()
+    elif args.network == 'resnet50friendlyv1':
         model = resnet.resnet50friendly(bn0=args.init_bn0).cuda()
-    elif args.friendlynum == 2:
+    elif args.network == 'resnet50friendlyv2':
         model = resnet.resnet50friendly2(bn0=args.init_bn0).cuda()
-    elif args.friendlynum == 3:
+    elif args.network == 'resnet50friendlyv3':
         model = resnet.resnet50friendly3(bn0=args.init_bn0).cuda()
-    elif args.friendlynum == 4:
+    elif args.network == 'resnet50friendlyv4':
         model = resnet.resnet50friendly4(bn0=args.init_bn0).cuda()
     #import resnet_friendly
     #model = resnet_friendly.ResNet50Friendly().cuda()
@@ -222,7 +224,7 @@ def main():
         #{'ep': (46, 50), 'sz': 320, 'bs': 64,  'lr': lr / 10000 * scale_320}
     ]
     phases = util.text_pickle(one_machine) #Ok? Unpickle?
-    phases = util.text_unpickle(phases) 
+    phases = util.text_unpickle(phases)
     dm = DataManager([copy.deepcopy(p) for p in phases if 'bs' in p])
     scheduler = Scheduler(optimizer, [copy.deepcopy(p) for p in phases if 'lr' in p])
 
@@ -250,21 +252,10 @@ def main():
         phase_save = dm.get_phase(epoch)
         if args.local_rank == 0:
             if is_best:
-                if args.friendlynum == 3:
-                    save_checkpoint(phase_save, epoch, model, best_top5, optimizer, is_best=True,
-                                    filename='model_best_resnet50_friendly3.pth.tar')
-                elif args.friendlynum == 4:
-                    save_checkpoint(phase_save, epoch, model, best_top5, optimizer, is_best=True,
-                                    filename='model_best_resnet50_friendly4.pth.tar')
+                save_checkpoint(phase_save, epoch, model, best_top5, optimizer, is_best=True,
+                                    filename='model_best_'+args.network+'.pth.tar')
             else:
-                if args.friendlynum == 1:
-                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly1_schedule2.pth.tar') 
-                elif args.friendlynum == 2:
-                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly2_schedule2.pth.tar') 
-                elif args.friendlynum == 3:
-                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly3.pth.tar') 
-                elif args.friendlynum == 4:
-                    save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_resnet50_friendly4.pth.tar') 
+                save_checkpoint(phase_save, epoch, model, top5, optimizer, is_best=False, filename='model_epoch_latest_'+args.network+'.pth.tar')
             phase = dm.get_phase(epoch)
             if phase:  save_checkpoint(phase_save, epoch, model, best_top5, optimizer,
                                        filename=f'sz{phase["bs"]}_checkpoint.path.tar')
